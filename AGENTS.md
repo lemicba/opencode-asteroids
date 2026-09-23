@@ -12,7 +12,7 @@ npx serve .   # → http://localhost:3000
 
 ## Architecture
 
-- All game logic lives in `game.js` — a single classic `<script>` (no ES modules, no `import`/`export`, no build step). Classes: `Ship`, `Asteroid`, `Bullet`, `Particle`.
+- All game logic lives in `game.js` — a single classic `<script>` (no ES modules, no `import`/`export`, no build step). Classes: `Ship`, `Asteroid`, `ShootingStar`, `Bullet`, `Particle`, `Powerup`.
 - Game state machine: `state` is `'playing' | 'dead' | 'gameover'` (see `update()`).
 - Entities follow the `dead` flag + `filter()` removal pattern; asteroid sizes 1–3 are indexed via the parallel `RADII` / `SPEEDS` / `POINTS` arrays.
 
@@ -21,7 +21,7 @@ npx serve .   # → http://localhost:3000
 - **Canvas size is duplicated**: `index.html` (`canvas width/height` attributes) and `game.js` (`W` / `H` constants, 800×600) must be kept in sync. The toroidal `wrap()` movement depends on `W`/`H`.
 - **Input edge detection**: `pressed(code)` consumes `justPressed` — it must be called exactly once per frame per key, or key presses get lost.
 - **dt is clamped** to 0.05 s in `loop()`; all physics are dt-based, so don't assume fixed frame steps.
-- **README is partly aspirational**: it mentions power-ups and a "estrella fugaz" (shooting star) that do NOT exist in `game.js`. Trust the code over the README.
+- **README/code drift**: keep the README in sync with `game.js` and trust the code when they diverge. (The power-ups and the "estrella fugaz" the README used to describe aspirationally are both implemented in `game.js`.)
 
 ## Conventions
 
