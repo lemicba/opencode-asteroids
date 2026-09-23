@@ -24,11 +24,12 @@ Luego visita `http://localhost:3000`.
 
 ## Controles
 
-| Tecla     | Acción     |
-| --------- | ---------- |
-| `←` `→`   | Rotar nave |
-| `↑`       | Propulsar  |
-| `Espacio` | Disparar   |
+| Tecla     | Acción                     |
+| --------- | -------------------------- |
+| `←` `→`   | Rotar nave                 |
+| `↑`       | Propulsar                  |
+| `Espacio` | Disparar                   |
+| `S`       | Cambiar skin de la nave    |
 
 ## Puntuación
 
@@ -47,3 +48,4 @@ Luego visita `http://localhost:3000`.
 - Power-up de velocidad (cápsula cian): duplica el empuje durante 5 segundos
 - Power-up de disparo triple (cápsula amarilla): 3 balas en abanico durante 5 segundos
 - Estrella fugaz: cruza la pantalla periódicamente, suma 500 puntos al dispararle, no se parte en fragmentos y destruye la nave al chocar
+- Skins de la nave: pulsá `S` para ciclar entre 4 diseños con silueta y color propios (Clásica, Cazador, Coloso y Espectro); la elección se guarda en el navegador y se recuerda entre sesiones
