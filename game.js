@@ -66,6 +66,8 @@ const POWERUP_DROP_CHANCE = 0.10;  // probabilidad de soltar cápsula
 const POWERUP_TTL         = 8;     // segundos antes de desaparecer
 const SPEED_DURATION      = 5;     // duración del efecto de velocidad
 const SPEED_MULT          = 2;     // multiplicador de empuje
+const TRIPLE_DURATION     = 5;     // duración del disparo triple
+const TRIPLE_SPREAD       = Math.PI / 15;  // apertura del abanico (12°)
 
 const SHOOTING_STAR_SPEED  = 260;  // velocidad de cruce en px/s
 const SHOOTING_STAR_TTL    = 6;    // segundos de vida máxima
@@ -194,6 +196,7 @@ class Ship {
     this.invincible    = 3;
     this.shootCooldown = 0;
     this.speedTimer    = 0;
+    this.tripleTimer   = 0;
     this.dead          = false;
   }
 
@@ -202,6 +205,7 @@ class Ship {
     if (this.invincible    > 0) this.invincible    -= dt;
     if (this.shootCooldown > 0) this.shootCooldown -= dt;
     if (this.speedTimer    > 0) this.speedTimer    -= dt;
+    if (this.tripleTimer   > 0) this.tripleTimer   -= dt;
 
     const ROT   = 3.5;   // rad/s
     const THRUST = this.speedTimer > 0 ? 260 * SPEED_MULT : 260;  // px/s²
@@ -228,6 +232,13 @@ class Ship {
     const NOSE = 21;
     const ox = this.x + Math.cos(this.angle) * NOSE;
     const oy = this.y + Math.sin(this.angle) * NOSE;
+    if (this.tripleTimer > 0) {
+      return [
+        new Bullet(ox, oy, this.angle - TRIPLE_SPREAD),
+        new Bullet(ox, oy, this.angle),
+        new Bullet(ox, oy, this.angle + TRIPLE_SPREAD)
+      ];
+    }
     return [new Bullet(ox, oy, this.angle)];
   }
 
@@ -301,9 +312,10 @@ class Particle {
 
 // ── Power-ups ─────────────────────────────────────────────────────────────────
 class Powerup {
-  constructor(x, y) {
+  constructor(x, y, type = 'speed') {
     this.x      = x;
     this.y      = y;
+    this.type   = type;
     const angle = rand(0, Math.PI * 2);
     const speed = rand(20, 40);
     this.vx = Math.cos(angle) * speed;
@@ -327,7 +339,7 @@ class Powerup {
     ctx.save();
     ctx.translate(this.x, this.y);
     ctx.rotate(this.ttl * 0.8);
-    ctx.strokeStyle = '#0ff';
+    ctx.strokeStyle = this.type === 'triple' ? '#ff0' : '#0ff';
     ctx.lineWidth   = 1.5;
     ctx.lineJoin    = 'round';
 
@@ -342,13 +354,22 @@ class Powerup {
     ctx.closePath();
     ctx.stroke();
 
-    // Rayo central
-    ctx.beginPath();
-    ctx.moveTo( 3, -7);
-    ctx.lineTo(-3,  1);
-    ctx.lineTo( 1,  1);
-    ctx.lineTo(-3,  7);
-    ctx.stroke();
+    if (this.type === 'triple') {
+      // Abanico de tres disparos
+      ctx.beginPath();
+      ctx.moveTo(-4, -6); ctx.lineTo( 6, -3);
+      ctx.moveTo(-4,  0); ctx.lineTo( 7,  0);
+      ctx.moveTo(-4,  6); ctx.lineTo( 6,  3);
+      ctx.stroke();
+    } else {
+      // Rayo central
+      ctx.beginPath();
+      ctx.moveTo( 3, -7);
+      ctx.lineTo(-3,  1);
+      ctx.lineTo( 1,  1);
+      ctx.lineTo(-3,  7);
+      ctx.stroke();
+    }
     ctx.restore();
   }
 }
@@ -464,7 +485,8 @@ function update(dt) {
         a.dead = true;
         score += POINTS[a.size];
         explode(a.x, a.y, a.size * 5);
-        if (Math.random() < POWERUP_DROP_CHANCE) powerups.push(new Powerup(a.x, a.y));
+        if (Math.random() < POWERUP_DROP_CHANCE)
+          powerups.push(new Powerup(a.x, a.y, Math.random() < 0.5 ? 'speed' : 'triple'));
         newAsteroids.push(...a.split());
       }
     }
@@ -490,7 +512,8 @@ function update(dt) {
   for (const p of powerups) {
     if (!p.dead && dist(ship, p) < ship.radius + p.radius) {
       p.dead = true;
-      ship.speedTimer = SPEED_DURATION;
+      if (p.type === 'triple') ship.tripleTimer = TRIPLE_DURATION;
+      else ship.speedTimer = SPEED_DURATION;
       explode(p.x, p.y, 12);
       break;
     }
@@ -546,6 +569,12 @@ function drawHUD() {
   if (!ship.dead && ship.speedTimer > 0) {
     ctx.fillStyle = '#0ff';
     ctx.fillText(`VELOCIDAD ${ship.speedTimer.toFixed(1)}s`, 14, 46);
+    ctx.fillStyle = '#fff';
+  }
+
+  if (!ship.dead && ship.tripleTimer > 0) {
+    ctx.fillStyle = '#ff0';
+    ctx.fillText(`TRIPLE ${ship.tripleTimer.toFixed(1)}s`, 14, 66);
     ctx.fillStyle = '#fff';
   }
 
