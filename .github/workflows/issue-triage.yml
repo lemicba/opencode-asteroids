@@ -1,0 +1,122 @@
+# Triage automático de issues: clasifica por palabras clave,
+# crea/aplica labels y añade un checklist de revisión al cuerpo.
+name: Triage de issues
+
+on:
+  issues:
+    types: [opened]
+
+# Permisos mínimos: solo escritura sobre issues
+permissions:
+  issues: write
+
+jobs:
+  triage:
+    name: Clasificar y etiquetar issue
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+      REPO: ${{ github.repository }}
+    steps:
+      # Paso 1: clasificación por palabras clave en título + cuerpo
+      - name: Clasificar issue por palabras clave
+        id: clasificar
+        env:
+          # Env vars, nunca interpolación directa: evita inyección shell
+          TITLE: ${{ github.event.issue.title }}
+          BODY: ${{ github.event.issue.body || '' }}
+        run: |
+          set -euo pipefail
+
+          # Título + cuerpo en minúsculas
+          TEXT="$(printf '%s\n%s' "$TITLE" "$BODY" | tr '[:upper:]' '[:lower:]')"
+
+          LABELS=""
+          add_label() {
+            if [ -n "$LABELS" ]; then LABELS="$LABELS,$1"; else LABELS="$1"; fi
+          }
+
+          if grep -qE 'bug|error|crash|falla|roto|no funciona|glitch' <<< "$TEXT"; then
+            add_label bug
+          fi
+          if grep -qE 'feature|mejora|agregar|añadir|sugerencia|idea|request' <<< "$TEXT"; then
+            add_label enhancement
+          fi
+          if grep -qE 'pregunta|cómo|como|ayuda|duda|question|help' <<< "$TEXT"; then
+            add_label question
+          fi
+
+          # Sin coincidencias → fallback
+          if [ -z "$LABELS" ]; then
+            add_label triage
+          fi
+
+          echo "labels=$LABELS" >> "$GITHUB_OUTPUT"
+
+      # Paso 2: crear labels faltantes (idempotente)
+      - name: Crear labels faltantes
+        env:
+          LABELS: ${{ steps.clasificar.outputs.labels }}
+        run: |
+          set -euo pipefail
+
+          for label in ${LABELS//,/ }; do
+            case "$label" in
+              bug)         color="d73a4a"; desc="Algo no funciona correctamente" ;;
+              enhancement) color="a2eeef"; desc="Nueva funcionalidad o mejora" ;;
+              question)    color="d876e3"; desc="Pregunta o pedido de ayuda" ;;
+              triage)      color="fef2c0"; desc="Requiere clasificación inicial" ;;
+            esac
+            # Si ya existe (exit != 0), se ignora y se sigue
+            gh label create "$label" --repo "$REPO" --color "$color" --description "$desc" 2>/dev/null \
+              || echo "El label '$label' ya existe; se omite."
+          done
+
+      # Paso 3: aplicar los labels al issue
+      - name: Aplicar labels al issue
+        env:
+          LABELS: ${{ steps.clasificar.outputs.labels }}
+          NUMBER: ${{ github.event.issue.number }}
+        run: |
+          set -euo pipefail
+          gh issue edit "$NUMBER" --repo "$REPO" --add-label "$LABELS"
+
+      # Paso 4: añadir checklist al cuerpo sin alterar el texto original
+      - name: Añadir checklist de revisión al cuerpo
+        env:
+          NUMBER: ${{ github.event.issue.number }}
+          BODY: ${{ github.event.issue.body || '' }}
+        run: |
+          set -euo pipefail
+
+          MARKER='<!-- triage-bot -->'
+
+          # Idempotencia: si ya está el marcador, no se toca el cuerpo
+          if grep -qF "$MARKER" <<< "$BODY"; then
+            echo "El cuerpo ya contiene el marcador de triage; no se modifica."
+            exit 0
+          fi
+
+          # Cuerpo original intacto + separador + marcador + checklist.
+          # printf %s con la variable entre comillas: cero interpolación
+          # del contenido del usuario; heredoc con comillas: sin expansiones.
+          {
+            if [ -n "$BODY" ]; then
+              printf '%s' "$BODY"
+              printf '\n\n---\n\n'
+            fi
+            cat <<'EOF'
+          <!-- triage-bot -->
+
+          ## 🔍 Información para revisión
+
+          _Añadido automáticamente por el bot de triage — por favor completá lo que aplique:_
+
+          - [ ] Pasos para reproducir (si aplica)
+          - [ ] Comportamiento esperado vs. comportamiento actual
+          - [ ] Navegador y sistema operativo (ej: Chrome 120 / Windows 11)
+          - [ ] Severidad: 🐞 menor / 🔥 molesto / 💥 rompe el juego
+          EOF
+          } > /tmp/body.md
+
+          gh issue edit "$NUMBER" --repo "$REPO" --body-file /tmp/body.md
