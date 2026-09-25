@@ -33,16 +33,24 @@ const randInt = (min, max) => Math.floor(rand(min, max + 1));
 const SKINS = [
   { id: 'clasica',  name: 'CLÁSICA',  stroke: '#fff',
     flame: 'rgba(255, 130, 0, 0.85)', flameX: -8,
-    verts: [[20, 0], [-12, -9], [-7, 0], [-12, 9]] },          // triángulo con muesca
+    verts: [[20, 0], [-12, -9], [-7, 0], [-12, 9]],            // triángulo con muesca
+    scale: 1, scoreMult: 1 },
   { id: 'cazador',  name: 'CAZADOR',  stroke: '#f44',
     flame: 'rgba(255, 60, 0, 0.85)', flameX: -10,
-    verts: [[24, 0], [-10, -7], [-14, 0], [-10, 7]] },         // dardo fino
+    verts: [[24, 0], [-10, -7], [-14, 0], [-10, 7]],           // dardo fino
+    scale: 1, scoreMult: 1 },
   { id: 'coloso',   name: 'COLOSO',   stroke: '#fd0',
     flame: 'rgba(255, 200, 0, 0.85)', flameX: -9,
-    verts: [[16, 0], [-13, -12], [-6, 0], [-13, 12]] },        // ala ancha
+    verts: [[16, 0], [-13, -12], [-6, 0], [-13, 12]],          // ala ancha
+    scale: 1, scoreMult: 1 },
   { id: 'espectro', name: 'ESPECTRO', stroke: '#0f0',
     flame: 'rgba(0, 255, 100, 0.85)', flameX: -16,
-    verts: [[22, 0], [-11, -6], [-16, -2], [-16, 2], [-11, 6]] }, // cola recta
+    verts: [[22, 0], [-11, -6], [-16, -2], [-16, 2], [-11, 6]], // cola recta
+    scale: 1, scoreMult: 1 },
+  { id: 'gigante', name: 'GIGANTE',  stroke: '#b0f',
+    flame: 'rgba(190, 100, 255, 0.85)', flameX: -8,
+    verts: [[20, 0], [-12, -9], [-7, 0], [-12, 9]],            // clásica a doble tamaño
+    scale: 2, scoreMult: 2 },
 ];
 const FLAME_BOOST_COLOR = 'rgba(0, 255, 255, 0.9)';
 
@@ -58,7 +66,7 @@ try {
 function currentSkin() { return SKINS[skinIndex]; }
 
 function shipNose() {
-  return Math.max(...currentSkin().verts.map(v => v[0])) + 1;
+  return (Math.max(...currentSkin().verts.map(v => v[0])) + 1) * currentSkin().scale;
 }
 
 function cycleSkin() {
@@ -232,7 +240,6 @@ class Ship {
     this.angle  = -Math.PI / 2;
     this.vx     = 0;
     this.vy     = 0;
-    this.radius = 12;
     this.thrusting     = false;
     this.invincible    = 3;
     this.shootCooldown = 0;
@@ -244,6 +251,7 @@ class Ship {
 
   update(dt) {
     if (this.dead) return;
+    this.radius = 12 * currentSkin().scale;
     if (this.invincible    > 0) this.invincible    -= dt;
     if (this.shootCooldown > 0) this.shootCooldown -= dt;
     if (this.speedTimer    > 0) this.speedTimer    -= dt;
@@ -309,6 +317,7 @@ class Ship {
 
     ctx.rotate(this.angle);
     const skin = currentSkin();
+    ctx.scale(skin.scale, skin.scale);
     ctx.strokeStyle = skin.stroke;
     ctx.lineWidth   = 1.5;
     ctx.lineJoin    = 'round';
@@ -500,7 +509,7 @@ function killShip() {
 
 function breakAsteroid(a) {
   a.dead = true;
-  score += POINTS[a.size];
+  score += POINTS[a.size] * currentSkin().scoreMult;
   explode(a.x, a.y, a.size * 5);
   if (Math.random() < POWERUP_DROP_CHANCE)
     powerups.push(new Powerup(a.x, a.y, POWERUP_TYPES[Math.floor(Math.random() * POWERUP_TYPES.length)]));
@@ -509,7 +518,7 @@ function breakAsteroid(a) {
 
 function destroyStar(s) {
   s.dead = true;
-  score += SHOOTING_STAR_POINTS;
+  score += SHOOTING_STAR_POINTS * currentSkin().scoreMult;
   explode(s.x, s.y, 15);
 }
 
